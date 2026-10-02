@@ -2,7 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Word, QuizQuestion, QuizModeType, UserStats } from '../types/vocab';
 import { LeitnerSRS } from '../services/leitnerSRS';
 import { StorageService } from '../services/storage';
-import { CheckCircle2, XCircle, ArrowRight, Sparkles, RefreshCw, Trophy, Volume2, HelpCircle, SkipForward } from 'lucide-react';
+import { 
+  CheckCircle2, 
+  XCircle, 
+  ArrowRight, 
+  Sparkles, 
+  RefreshCw, 
+  Trophy, 
+  HelpCircle, 
+  TrendingUp,
+  Layers
+} from 'lucide-react';
 import { EnToTrIcon, TrToEnIcon, TranslationSwapIcon } from './TranslationIcons';
 
 interface QuizModeProps {
@@ -14,7 +24,14 @@ interface QuizModeProps {
   selectedCategory?: string;
 }
 
-export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats, mode, onToggleMode, selectedCategory }) => {
+export const QuizMode: React.FC<QuizModeProps> = ({ 
+  words, 
+  onWordsUpdated, 
+  stats, 
+  mode, 
+  onToggleMode, 
+  selectedCategory 
+}) => {
   const [selectedFolder, setSelectedFolder] = useState<string>(selectedCategory || 'ALL');
 
   useEffect(() => {
@@ -22,10 +39,14 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
       setSelectedFolder(selectedCategory);
     }
   }, [selectedCategory]);
+
   const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [previousBox, setPreviousBox] = useState<number>(1);
+  const [newBox, setNewBox] = useState<number>(1);
+
   const [sessionScore, setSessionScore] = useState(0);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [questionQueue, setQuestionQueue] = useState<Word[]>([]);
@@ -60,6 +81,8 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
     setSelectedOption(null);
     setIsAnswered(false);
     setIsCorrect(null);
+    setPreviousBox(targetWord.leitnerBox);
+    setNewBox(targetWord.leitnerBox);
   };
 
   const handleSelectOption = (option: string) => {
@@ -69,10 +92,9 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
       navigator.vibrate(30);
     }
 
+    const correct = option === currentQuestion.correctAnswer;
     setSelectedOption(option);
     setIsAnswered(true);
-
-    const correct = option === currentQuestion.correctAnswer;
     setIsCorrect(correct);
 
     if (correct) {
@@ -80,7 +102,13 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
     }
     setSessionTotal((prev) => prev + 1);
 
-    StorageService.recordAnswer(currentQuestion.word.id, correct);
+    // Save answer and update Leitner box
+    const updatedWord = StorageService.recordAnswer(currentQuestion.word.id, correct);
+    if (updatedWord) {
+      setNewBox(updatedWord.leitnerBox);
+      setCurrentQuestion(prev => prev ? { ...prev, word: updatedWord } : null);
+    }
+
     onWordsUpdated();
   };
 
@@ -97,25 +125,13 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
     setSessionTotal((prev) => prev + 1);
 
     // Records as false so SRS Leitner algorithm prioritizes reviewing it
-    StorageService.recordAnswer(currentQuestion.word.id, false);
+    const updatedWord = StorageService.recordAnswer(currentQuestion.word.id, false);
+    if (updatedWord) {
+      setNewBox(updatedWord.leitnerBox);
+      setCurrentQuestion(prev => prev ? { ...prev, word: updatedWord } : null);
+    }
+
     onWordsUpdated();
-  };
-
-  const handleSkipQuestion = () => {
-    if (questionQueue.length <= 1) {
-      setIsSessionFinished(true);
-      return;
-    }
-
-    if (navigator.vibrate) {
-      navigator.vibrate(15);
-    }
-
-    // Moves current question to the back of the queue so user can practice it later
-    const [current, ...remaining] = questionQueue;
-    const reorderedQueue = [...remaining, current];
-    setQuestionQueue(reorderedQueue);
-    loadNextQuestion(reorderedQueue[0]);
   };
 
   const handleNext = () => {
@@ -131,16 +147,44 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
     }
   };
 
+  // Keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isSessionFinished) return;
+      if (isAnswered) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+          e.preventDefault();
+          handleNext();
+        }
+      } else if (currentQuestion) {
+        if (e.key === '1' || e.key === 'a' || e.key === 'A') handleSelectOption(currentQuestion.options[0]);
+        else if (e.key === '2' || e.key === 'b' || e.key === 'B') handleSelectOption(currentQuestion.options[1]);
+        else if (e.key === '3' || e.key === 'c' || e.key === 'C') handleSelectOption(currentQuestion.options[2]);
+        else if (e.key === '4' || e.key === 'd' || e.key === 'D') handleSelectOption(currentQuestion.options[3]);
+        else if (e.key === '?' || e.key === 'k') handleIDontKnow();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAnswered, isSessionFinished, currentQuestion, questionQueue]);
+
   if (activePool.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
-        <div className="w-16 h-16 rounded-3xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mb-4">
-          <Sparkles className="w-8 h-8" />
+      <div className="flex flex-col items-center justify-center p-6 text-center h-[calc(100dvh-54px-64px)]">
+        <div className="w-14 h-14 rounded-3xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center mb-3">
+          <Sparkles className="w-7 h-7" />
         </div>
-        <h2 className="text-xl font-bold text-white mb-2">Bu Klasörde Kelime Yok</h2>
-        <p className="text-xs text-slate-400 max-w-xs mb-6">
+        <h2 className="text-lg font-bold text-white mb-1">Bu Klasörde Kelime Yok</h2>
+        <p className="text-xs text-slate-400 max-w-xs mb-4">
           Lütfen başka bir klasör seçin veya kütüphaneden kelime ekleyin.
         </p>
+        <button
+          onClick={() => setSelectedFolder('ALL')}
+          className="px-4 py-2 bg-indigo-600 rounded-xl text-white font-bold text-xs"
+        >
+          Tüm Kelimeleri Göster
+        </button>
       </div>
     );
   }
@@ -149,33 +193,33 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
     const accuracy = sessionTotal > 0 ? Math.round((sessionScore / sessionTotal) * 100) : 0;
 
     return (
-      <div className="p-4 max-w-md mx-auto animate-fadeIn">
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 text-center shadow-xl">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white mx-auto mb-4 shadow-lg shadow-indigo-500/30">
-            <Trophy className="w-8 h-8" />
+      <div className="p-4 max-w-md mx-auto h-[calc(100dvh-54px-64px)] flex flex-col justify-center animate-fadeIn">
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-center shadow-xl">
+          <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white mx-auto mb-3 shadow-lg shadow-indigo-500/30">
+            <Trophy className="w-7 h-7" />
           </div>
 
-          <h2 className="text-xl font-bold text-white mb-1">
-            {mode === 'EN_TO_TR' ? 'İngilizce → Türkçe' : 'Türkçe → İngilizce'} Testi Tamamlandı! 🎉
+          <h2 className="text-lg font-bold text-white mb-1">
+            {mode === 'EN_TO_TR' ? 'İngilizce → Türkçe' : 'Türkçe → İngilizce'} Tamamlandı! 🎉
           </h2>
-          <p className="text-xs text-slate-400 mb-6">
-            Aralıklı tekrar algoritmasıyla kelimelerin öğrenme düzeyleri güncellendi.
+          <p className="text-xs text-slate-400 mb-4">
+            Aralıklı tekrar algoritmasıyla kutu seviyeleri başarıyla güncellendi.
           </p>
 
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-center">
-              <span className="text-2xl font-black text-indigo-400">{sessionScore} / {sessionTotal}</span>
-              <p className="text-[10px] text-slate-400 font-medium uppercase mt-1">Doğru Sayısı</p>
+          <div className="grid grid-cols-2 gap-2.5 mb-5">
+            <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 text-center">
+              <span className="text-xl font-black text-indigo-400">{sessionScore} / {sessionTotal}</span>
+              <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">Doğru Sayısı</p>
             </div>
-            <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-center">
-              <span className="text-2xl font-black text-emerald-400">%{accuracy}</span>
-              <p className="text-[10px] text-slate-400 font-medium uppercase mt-1">Başarı Oranı</p>
+            <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800 text-center">
+              <span className="text-xl font-black text-emerald-400">%{accuracy}</span>
+              <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">Başarı Oranı</p>
             </div>
           </div>
 
           <button
             onClick={startNewQuizSession}
-            className="w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-sm shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 active:scale-98 transition-all"
+            className="w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 active:scale-98 transition-all"
           >
             <RefreshCw className="w-4 h-4" />
             <span>Yeni Oturum Başlat</span>
@@ -189,27 +233,28 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
 
   const target = currentQuestion.word;
 
-  const playPronunciation = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
+  const partOfSpeechLabels: Record<string, string> = {
+    noun: 'İsim',
+    verb: 'Fiil',
+    adjective: 'Sıfat',
+    adverb: 'Zarf',
+    conjunction: 'Bağlaç',
+    preposition: 'Edat',
+    phrasal: 'Phrasal Verb',
+    other: 'İfade'
   };
 
   return (
-    <div className="p-4 max-w-md mx-auto pb-24">
-      {/* Folder & Mode Selector Bar */}
-      <div className="flex items-center justify-between gap-2 mb-3">
+    <div className="max-w-md mx-auto w-full px-3.5 py-1.5 flex flex-col justify-start space-y-2.5 select-none">
+      {/* 1. Top Controls Bar */}
+      <div className="flex items-center justify-between gap-1.5 shrink-0">
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          {/* Interactive Translation Direction Toggle Button */}
+          {/* Interactive Translation Direction Toggle */}
           <button
             type="button"
             onClick={onToggleMode}
             title="Çeviri Yönünü Değiştir (EN ↔ TR)"
-            className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 shadow-sm shadow-indigo-600/30 active:scale-95 transition"
+            className="px-2 py-1 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 text-white text-[11px] font-bold flex items-center gap-1 shrink-0 shadow-sm active:scale-95 transition"
           >
             {mode === 'EN_TO_TR' ? (
               <EnToTrIcon className="w-3.5 h-3.5" />
@@ -217,7 +262,7 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
               <TrToEnIcon className="w-3.5 h-3.5" />
             )}
             <span>{mode === 'EN_TO_TR' ? 'EN ➔ TR' : 'TR ➔ EN'}</span>
-            <TranslationSwapIcon className="w-3 h-3 text-indigo-200 opacity-80" />
+            <TranslationSwapIcon className="w-2.5 h-2.5 text-indigo-200 opacity-80" />
           </button>
 
           {/* Folder Select Dropdown */}
@@ -225,7 +270,7 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
             <select
               value={selectedFolder}
               onChange={(e) => setSelectedFolder(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs font-medium rounded-lg px-2 py-1 pr-6 truncate focus:outline-none focus:border-indigo-500"
+              className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-[11px] font-medium rounded-lg px-2 py-1 truncate focus:outline-none focus:border-indigo-500"
             >
               <option value="ALL">📁 Tüm Kelimeler ({words.length})</option>
               <option value="Önemli İsimler">📁 Önemli İsimler (600)</option>
@@ -239,57 +284,64 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
           </div>
         </div>
 
-        <div className="text-xs font-semibold text-slate-400 shrink-0">
+        <div className="text-[11px] font-semibold text-slate-400 shrink-0 pl-1">
           Kalan: <span className="text-white font-bold">{questionQueue.length}</span>
         </div>
       </div>
 
-      {/* Main Question Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl mb-4 relative overflow-hidden">
-        <div className="text-[11px] font-bold text-indigo-400 uppercase tracking-wider mb-2">
-          {mode === 'EN_TO_TR'
-            ? 'Aşağıdaki İngilizce kelimenin Türkçe karşılığını seçin:'
-            : 'Aşağıdaki Türkçe ifadenin İngilizce karşılığını seçin:'}
+      {/* 2. Word Question Card (Compact) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 shadow-md shrink-0 relative overflow-hidden">
+        <div className="flex items-center justify-between text-[11px] mb-1.5">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wide">
+            {partOfSpeechLabels[target.partOfSpeech] || 'Kelime'} · {target.category}
+          </span>
+
+          {/* Live Leitner Box Badge */}
+          <div className="flex items-center gap-1.5">
+            {isAnswered && isCorrect ? (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30 animate-pulse">
+                <TrendingUp className="w-3 h-3" />
+                <span>Kutu {previousBox} ➔ {newBox}</span>
+              </span>
+            ) : isAnswered && selectedOption === '__DONT_KNOW__' ? (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                Kutu 1'e Alındı
+              </span>
+            ) : isAnswered && !isCorrect ? (
+              <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-[10px] font-bold border border-rose-500/30">
+                Kutu {previousBox} ➔ {newBox}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-medium border border-slate-700/60">
+                <Layers className="w-3 h-3 text-indigo-400" />
+                <span>Leitner Kutu {target.leitnerBox}</span>
+              </span>
+            )}
+          </div>
         </div>
 
-        <div className="my-3 flex items-center justify-between gap-3">
-          <h2 className="text-2xl font-black text-white tracking-tight break-words">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight break-words">
             {currentQuestion.prompt}
           </h2>
-          {mode === 'EN_TO_TR' && (
-            <button
-              type="button"
-              onClick={() => playPronunciation(currentQuestion.prompt)}
-              className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition shrink-0"
-              title="İngilizce Telaffuzu Dinle"
-              aria-label="Telaffuz"
-            >
-              <Volume2 className="w-5 h-5 text-indigo-400" />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-3 border-t border-slate-800/80">
-          <span>Klasör: <strong className="text-slate-300">{target.category}</strong></span>
-          <span>Leitner Kutu <strong className="text-indigo-400">{target.leitnerBox}</strong></span>
         </div>
       </div>
 
-      {/* Options List */}
-      <div className="space-y-3 mb-6">
+      {/* 3. Options (A, B, C, D) + "Bilmiyorum" Directly Underneath */}
+      <div className="space-y-2">
         {currentQuestion.options.map((option, idx) => {
-          let btnStyle = 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800';
+          let btnStyle = 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800 active:border-slate-700';
           let icon = null;
 
           if (isAnswered) {
             if (option === currentQuestion.correctAnswer) {
-              btnStyle = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-md shadow-emerald-500/10 font-bold';
-              icon = <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />;
+              btnStyle = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm font-bold';
+              icon = <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />;
             } else if (option === selectedOption) {
               btnStyle = 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold';
-              icon = <XCircle className="w-5 h-5 text-rose-400 shrink-0" />;
+              icon = <XCircle className="w-4 h-4 text-rose-400 shrink-0" />;
             } else {
-              btnStyle = 'bg-slate-900/50 text-slate-500 border-slate-850 opacity-50';
+              btnStyle = 'bg-slate-900/40 text-slate-500 border-slate-800/50 opacity-40';
             }
           }
 
@@ -298,98 +350,78 @@ export const QuizMode: React.FC<QuizModeProps> = ({ words, onWordsUpdated, stats
               key={idx}
               disabled={isAnswered}
               onClick={() => handleSelectOption(option)}
-              className={`w-full p-4 rounded-2xl border text-left font-medium text-sm flex items-center justify-between gap-3 active:scale-[0.99] transition-all min-h-[56px] ${btnStyle}`}
+              className={`w-full py-2.5 px-3 rounded-xl border text-left font-medium text-xs sm:text-sm flex items-center justify-between gap-2.5 min-h-[44px] transition active:scale-[0.99] ${btnStyle}`}
             >
-              <div className="flex items-center gap-3">
-                <span className="w-6 h-6 rounded-lg bg-slate-800/80 text-slate-400 text-xs font-bold flex items-center justify-center shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-5 h-5 rounded-md bg-slate-800/80 text-slate-400 text-[10px] font-bold flex items-center justify-center shrink-0">
                   {String.fromCharCode(65 + idx)}
                 </span>
-                <span className="leading-snug">{option}</span>
+                <span className="leading-snug truncate">{option}</span>
               </div>
               {icon}
             </button>
           );
         })}
-      </div>
 
-      {/* Quiz Helper Actions: Bilmiyorum & Geç */}
-      {!isAnswered && (
-        <div className="grid grid-cols-2 gap-2.5 mb-6">
+        {/* "Bilmiyorum" button placed immediately below options */}
+        {!isAnswered ? (
           <button
             type="button"
             onClick={handleIDontKnow}
-            className="py-3 px-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 border border-slate-800 hover:border-amber-500/50 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition shadow-sm"
+            className="w-full py-2.5 px-3 min-h-[44px] rounded-xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 border border-slate-800/80 hover:border-amber-500/50 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition mt-1 shadow-sm"
             title="Cevabı göster ve bu kelimeyi tekrar listesine ekle"
           >
             <HelpCircle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>Bilmiyorum</span>
+            <span>Bilmiyorum (Cevabı Göster)</span>
           </button>
+        ) : (
+          <div className="space-y-2 pt-1 animate-fadeIn">
+            {/* 1-Line Compact Feedback Strip */}
+            <div className={`px-3 py-2 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+              isCorrect
+                ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                : selectedOption === '__DONT_KNOW__'
+                ? 'bg-amber-950/40 border-amber-500/30 text-amber-200'
+                : 'bg-rose-950/40 border-rose-500/30 text-rose-200'
+            }`}>
+              <div className="flex items-center gap-1.5 min-w-0 truncate">
+                {isCorrect ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-bold truncate">Doğru! Kutu {previousBox} ➔ {newBox} (+1 Seviye)</span>
+                  </>
+                ) : selectedOption === '__DONT_KNOW__' ? (
+                  <>
+                    <HelpCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span className="font-bold truncate">Doğru: "{currentQuestion.correctAnswer}" (Tekrar Listesinde)</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span className="font-bold truncate">Doğru: "{currentQuestion.correctAnswer}"</span>
+                  </>
+                )}
+              </div>
 
-          <button
-            type="button"
-            onClick={handleSkipQuestion}
-            className="py-3 px-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 active:bg-slate-750 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white font-bold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition shadow-sm"
-            title="Bu soruyu atla ve sıranın sonuna taşı"
-          >
-            <span>Geç</span>
-            <SkipForward className="w-4 h-4 text-slate-400 shrink-0" />
-          </button>
-        </div>
-      )}
-
-      {/* Post Answer Feedback Card */}
-      {isAnswered && (
-        <div className="animate-fadeIn space-y-4">
-          <div className={`p-4 rounded-2xl border ${
-            isCorrect 
-              ? 'bg-emerald-950/40 border-emerald-500/30' 
-              : selectedOption === '__DONT_KNOW__'
-              ? 'bg-amber-950/40 border-amber-500/30'
-              : 'bg-rose-950/40 border-rose-500/30'
-          }`}>
-            <div className="flex items-center gap-2 mb-2">
-              {isCorrect ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span className="text-xs font-bold text-emerald-400">Doğru Cevap! (Leitner Kutusu +1 Seviye Yükseldi)</span>
-                </>
-              ) : selectedOption === '__DONT_KNOW__' ? (
-                <>
-                  <HelpCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span className="text-xs font-bold text-amber-300">
-                    Öğrenme Modu: Doğru Karşılık: "{currentQuestion.correctAnswer}" (Tekrar Havuzuna Eklendi)
-                  </span>
-                </>
-              ) : (
-                <>
-                  <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span className="text-xs font-bold text-rose-400">
-                    Yanlış Cevap. Doğru Karşılık: "{currentQuestion.correctAnswer}"
-                  </span>
-                </>
+              {target.exampleEn && (
+                <span className="italic text-[10px] text-slate-400 truncate max-w-[130px] hidden xs:inline" title={target.exampleEn}>
+                  "{target.exampleEn}"
+                </span>
               )}
             </div>
 
-            {target.exampleEn && (
-              <div className="mt-2 text-xs text-slate-300 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <p className="font-semibold text-white mb-1">Örnek Cümle:</p>
-                <p className="italic text-slate-200">"{target.exampleEn}"</p>
-                {target.exampleTr && (
-                  <p className="text-slate-400 mt-1">"{target.exampleTr}"</p>
-                )}
-              </div>
-            )}
+            {/* Sonraki Kelime Button */}
+            <button
+              onClick={handleNext}
+              autoFocus
+              className="w-full py-3 min-h-[46px] rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold text-sm shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 active:scale-98 transition"
+            >
+              <span>Sonraki Kelime</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
-
-          <button
-            onClick={handleNext}
-            className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 active:scale-98 transition-all"
-          >
-            <span>Sonraki Kelime</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

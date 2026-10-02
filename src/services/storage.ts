@@ -1,9 +1,22 @@
 import { Word, UserStats, NotificationSettings } from '../types/vocab';
 import { getInitialWordsWithDefaults } from '../data/initialVocabulary';
 
-const STORAGE_KEY_WORDS = 'vocabmaster_words_v10';
-const STORAGE_KEY_STATS = 'vocabmaster_stats_v10';
-const STORAGE_KEY_SETTINGS = 'vocabmaster_settings_v10';
+// Compact progress schema for rock-solid LocalStorage reliability (prevents QuotaExceededError)
+interface WordProgress {
+  box: 1 | 2 | 3 | 4 | 5;
+  rev: number;
+  cor: number;
+  inc: number;
+  str: number;
+  last?: string;
+  next?: string;
+}
+
+const STORAGE_KEY_PROGRESS = 'vocabmaster_progress_v11';
+const STORAGE_KEY_CUSTOM = 'vocabmaster_custom_words_v11';
+const STORAGE_KEY_WORDS = 'vocabmaster_words_v11';
+const STORAGE_KEY_STATS = 'vocabmaster_stats_v11';
+const STORAGE_KEY_SETTINGS = 'vocabmaster_settings_v11';
 
 const DEFAULT_STATS: UserStats = {
   totalStudiedDays: 1,
@@ -31,31 +44,208 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 };
 
 export class StorageService {
-  static getWords(): Word[] {
+  private static cachedWords: Word[] | null = null;
+  private static cachedStats: UserStats | null = null;
+  private static isInitialized = false;
+
+  private static ensureInitialized() {
+    if (this.isInitialized) return;
+    this.isInitialized = true;
+    this.cleanupOldStorageVersions();
+  }
+
+  // Frees up megabytes from orphaned previous storage keys (v1 to v10)
+  private static cleanupOldStorageVersions(): void {
     try {
-      const data = localStorage.getItem(STORAGE_KEY_WORDS);
-      if (!data) {
-        const initial = getInitialWordsWithDefaults();
-        this.saveWords(initial);
-        return initial;
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      
+      // First, attempt to migrate any progress from v10 if available
+      try {
+        const v10Data = localStorage.getItem('vocabmaster_words_v10');
+        if (v10Data && !localStorage.getItem(STORAGE_KEY_PROGRESS)) {
+          const oldWords: Word[] = JSON.parse(v10Data);
+          const progressMap: Record<string, WordProgress> = {};
+          const customWords: Word[] = [];
+
+          for (const w of oldWords) {
+            if (w.custom) {
+              customWords.push(w);
+            }
+            if (w.leitnerBox > 1 || w.timesReviewed > 0) {
+              progressMap[w.id] = {
+                box: w.leitnerBox,
+                rev: w.timesReviewed,
+                cor: w.timesCorrect,
+                inc: w.timesIncorrect,
+                str: w.streak,
+                last: w.lastReviewed,
+                next: w.nextReview
+              };
+            }
+          }
+          if (Object.keys(progressMap).length > 0) {
+            localStorage.setItem(STORAGE_KEY_PROGRESS, JSON.stringify(progressMap));
+          }
+          if (customWords.length > 0) {
+            localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(customWords));
+          }
+        }
+      } catch (e) {
+        console.warn('Migration warning:', e);
       }
-      return JSON.parse(data);
+
+      // Purge all legacy large word dumps (v1 through v10) to prevent QuotaExceededError
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('vocabmaster_') && !key.endsWith('_v11')) {
+          keysToRemove.push(key);
+        }
+      }
+      for (const k of keysToRemove) {
+        localStorage.removeItem(k);
+      }
     } catch (err) {
-      console.error('Error loading words from LocalStorage:', err);
-      return getInitialWordsWithDefaults();
+      console.warn('Storage cleanup notice:', err);
+    }
+  }
+
+  static getProgressMap(): Record<string, WordProgress> {
+    try {
+      this.ensureInitialized();
+      const raw = localStorage.getItem(STORAGE_KEY_PROGRESS);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  static saveProgressMap(map: Record<string, WordProgress>): void {
+    try {
+      localStorage.setItem(STORAGE_KEY_PROGRESS, JSON.stringify(map));
+    } catch (e) {
+      console.error('Failed to save compact progress:', e);
+    }
+  }
+
+  static getCustomWords(): Word[] {
+    try {
+      this.ensureInitialized();
+      const raw = localStorage.getItem(STORAGE_KEY_CUSTOM);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static saveCustomWords(customWords: Word[]): void {
+    try {
+      localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(customWords));
+    } catch (e) {
+      console.error('Failed to save custom words:', e);
+    }
+  }
+
+  static getWords(): Word[] {
+    this.ensureInitialized();
+    if (this.cachedWords) {
+      return this.cachedWords;
+    }
+
+    try {
+      // 1. Start with initial static words
+      const words = getInitialWordsWithDefaults();
+      const wordMap = new Map<string, Word>();
+      for (const w of words) {
+        wordMap.set(w.id, w);
+      }
+
+      // 2. Add custom words
+      const customWords = this.getCustomWords();
+      for (const cw of customWords) {
+        wordMap.set(cw.id, cw);
+      }
+
+      // 3. Overlay stored user progress
+      const progressMap = this.getProgressMap();
+      for (const [id, prog] of Object.entries(progressMap)) {
+        const word = wordMap.get(id);
+        if (word) {
+          word.leitnerBox = prog.box;
+          word.timesReviewed = prog.rev;
+          word.timesCorrect = prog.cor;
+          word.timesIncorrect = prog.inc;
+          word.streak = prog.str;
+          word.lastReviewed = prog.last;
+          word.nextReview = prog.next;
+        }
+      }
+
+      const mergedWords = Array.from(wordMap.values());
+      this.cachedWords = mergedWords;
+
+      // Safe background backup to words key if quota allows
+      try {
+        localStorage.setItem(STORAGE_KEY_WORDS, JSON.stringify(mergedWords));
+      } catch {
+        // Safe to ignore because progress map is preserved
+      }
+
+      return mergedWords;
+    } catch (err) {
+      console.error('Error loading words:', err);
+      const initial = getInitialWordsWithDefaults();
+      this.cachedWords = initial;
+      return initial;
     }
   }
 
   static saveWords(words: Word[]): void {
+    this.cachedWords = words;
     try {
-      localStorage.setItem(STORAGE_KEY_WORDS, JSON.stringify(words));
+      // 1. Extract and save compact progress map
+      const progressMap: Record<string, WordProgress> = {};
+      const customWords: Word[] = [];
+
+      for (const w of words) {
+        if (w.custom) {
+          customWords.push(w);
+        }
+        if (w.leitnerBox > 1 || w.timesReviewed > 0) {
+          progressMap[w.id] = {
+            box: w.leitnerBox,
+            rev: w.timesReviewed,
+            cor: w.timesCorrect,
+            inc: w.timesIncorrect,
+            str: w.streak,
+            last: w.lastReviewed,
+            next: w.nextReview
+          };
+        }
+      }
+
+      this.saveProgressMap(progressMap);
+      this.saveCustomWords(customWords);
+
+      // 2. Attempt full cache
+      try {
+        localStorage.setItem(STORAGE_KEY_WORDS, JSON.stringify(words));
+      } catch {
+        // quota exceeded for full array is non-fatal since progress is saved
+      }
+
       this.recalculateLeitnerStats(words);
     } catch (err) {
-      console.error('Error saving words to LocalStorage:', err);
+      console.error('Error saving words:', err);
     }
   }
 
   static getStats(): UserStats {
+    this.ensureInitialized();
+    if (this.cachedStats) {
+      return this.cachedStats;
+    }
+
     try {
       const data = localStorage.getItem(STORAGE_KEY_STATS);
       if (!data) {
@@ -65,9 +255,10 @@ export class StorageService {
         this.saveStats(initialStats);
         return initialStats;
       }
+
       const stats: UserStats = JSON.parse(data);
-      
       const today = new Date().toISOString().split('T')[0];
+
       if (stats.lastStudyDate && stats.lastStudyDate !== today) {
         const lastDate = new Date(stats.lastStudyDate);
         const currDate = new Date(today);
@@ -79,6 +270,8 @@ export class StorageService {
         }
         stats.dailyProgressCount = 0;
       }
+
+      this.cachedStats = stats;
       return stats;
     } catch (err) {
       console.error('Error reading stats:', err);
@@ -87,6 +280,7 @@ export class StorageService {
   }
 
   static saveStats(stats: UserStats): void {
+    this.cachedStats = stats;
     try {
       localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(stats));
     } catch (err) {
@@ -99,7 +293,7 @@ export class StorageService {
       const data = localStorage.getItem(STORAGE_KEY_SETTINGS);
       if (!data) return DEFAULT_SETTINGS;
       return JSON.parse(data);
-    } catch (err) {
+    } catch {
       return DEFAULT_SETTINGS;
     }
   }
@@ -112,13 +306,17 @@ export class StorageService {
     }
   }
 
+  /**
+   * Records an answer for a word, updates its Leitner box,
+   * schedules next review, and persists to storage immediately.
+   */
   static recordAnswer(wordId: string, isCorrect: boolean): Word | null {
     const words = this.getWords();
     const stats = this.getStats();
     const wordIndex = words.findIndex((w) => w.id === wordId);
     if (wordIndex === -1) return null;
 
-    const word = words[wordIndex];
+    const word = { ...words[wordIndex] };
     const now = new Date();
 
     word.timesReviewed += 1;
@@ -134,14 +332,29 @@ export class StorageService {
       stats.totalIncorrectAnswers += 1;
     }
 
-    const daysToAdd = [0, 1, 2, 5, 10, 30][word.leitnerBox];
+    // Leitner intervals: Box 1: immediate, Box 2: 1 day, Box 3: 3 days, Box 4: 7 days, Box 5: 30 days
+    const daysToAdd = [0, 0, 1, 3, 7, 30][word.leitnerBox];
     const nextDate = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
     word.lastReviewed = now.toISOString();
     word.nextReview = nextDate.toISOString();
 
     words[wordIndex] = word;
-    this.saveWords(words);
+    this.cachedWords = words;
 
+    // 1. Immediately persist compact word progress
+    const progressMap = this.getProgressMap();
+    progressMap[word.id] = {
+      box: word.leitnerBox,
+      rev: word.timesReviewed,
+      cor: word.timesCorrect,
+      inc: word.timesIncorrect,
+      str: word.streak,
+      last: word.lastReviewed,
+      next: word.nextReview
+    };
+    this.saveProgressMap(progressMap);
+
+    // 2. Update and persist stats
     const today = new Date().toISOString().split('T')[0];
     if (stats.lastStudyDate !== today) {
       if (stats.lastStudyDate) {
@@ -166,6 +379,14 @@ export class StorageService {
     stats.leitnerCounts = this.computeLeitnerCounts(words);
 
     this.saveStats(stats);
+
+    // Notify any listening components
+    try {
+      window.dispatchEvent(new CustomEvent('vocabmaster_answer_recorded', { detail: { wordId, box: word.leitnerBox } }));
+    } catch {
+      // ignore
+    }
+
     return word;
   }
 
@@ -272,6 +493,13 @@ export class StorageService {
       lastReviewed: undefined,
       nextReview: new Date().toISOString()
     }));
+
+    try {
+      localStorage.removeItem(STORAGE_KEY_PROGRESS);
+    } catch {
+      // ignore
+    }
+
     this.saveWords(words);
 
     const stats = { ...DEFAULT_STATS };
@@ -279,7 +507,7 @@ export class StorageService {
     this.saveStats(stats);
   }
 
-  private static computeLeitnerCounts(words: Word[]) {
+  static computeLeitnerCounts(words: Word[]) {
     const counts = { box1: 0, box2: 0, box3: 0, box4: 0, box5: 0 };
     for (const w of words) {
       if (w.leitnerBox === 1) counts.box1++;

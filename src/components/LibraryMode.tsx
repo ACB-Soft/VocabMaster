@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Word, WordCategory, PartOfSpeech } from '../types/vocab';
 import { StorageService } from '../services/storage';
-import { Search, Plus, Upload, Download, X, Volume2 } from 'lucide-react';
+import { Search, Plus, Upload, Download, X } from 'lucide-react';
 
 interface LibraryModeProps {
   words: Word[];
@@ -106,16 +106,6 @@ bring about,sebep olmak,phrasal,Phrasal Verbs,Innovations bring about changes.,Y
     document.body.removeChild(link);
   };
 
-  const playAudio = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
-
   return (
     <div className="p-4 max-w-md mx-auto pb-24">
       {/* Header & Quick Action Buttons */}
@@ -198,15 +188,6 @@ bring about,sebep olmak,phrasal,Phrasal Verbs,Innovations bring about changes.,Y
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-bold text-sm text-white truncate">{w.word}</span>
-                <button
-                  type="button"
-                  onClick={() => playAudio(w.word)}
-                  className="p-1 rounded-md bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition"
-                  title="Telaffuz Dinle"
-                  aria-label="Telaffuz"
-                >
-                  <Volume2 className="w-3 h-3 text-indigo-400" />
-                </button>
                 <span className="text-[10px] px-2 py-0.2 rounded-md bg-slate-800 text-slate-400 uppercase font-mono">
                   {w.partOfSpeech}
                 </span>

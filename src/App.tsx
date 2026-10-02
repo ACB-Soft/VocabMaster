@@ -42,6 +42,8 @@ export default function App() {
     return new Date(w.nextReview).getTime() <= Date.now();
   }).length;
 
+  const isQuizTab = activeTab === 'quiz_en_tr' || activeTab === 'quiz_tr_en';
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none antialiased">
       {/* Top Mobile Header */}
@@ -51,7 +53,7 @@ export default function App() {
       />
 
       {/* Main View Area */}
-      <main className="flex-1 w-full max-w-md mx-auto pt-2">
+      <main className={`flex-1 w-full max-w-md mx-auto ${isQuizTab ? 'overflow-hidden flex flex-col' : 'pt-2'}`}>
         {activeTab === 'dashboard' && (
           <DashboardMode
             words={words}

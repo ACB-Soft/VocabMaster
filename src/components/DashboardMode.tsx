@@ -4,16 +4,9 @@ import {
   Flame, 
   Target, 
   Brain, 
-  Volume2, 
   ArrowRight, 
-  BookOpen, 
   Sparkles, 
-  CheckCircle2, 
-  Layers, 
-  Play,
-  RotateCw,
-  Clock,
-  Compass
+  Play
 } from 'lucide-react';
 import { EnToTrIcon, TrToEnIcon, TranslationSwapIcon } from './TranslationIcons';
 
@@ -45,31 +38,6 @@ export const DashboardMode: React.FC<DashboardModeProps> = ({
     if (!w.nextReview) return true;
     return new Date(w.nextReview).getTime() <= Date.now();
   });
-
-  // Word of the Day (seeded by today's date so it changes daily)
-  const getWordOfTheDay = (): Word | null => {
-    if (words.length === 0) return null;
-    const today = new Date().toISOString().slice(0, 10);
-    let hash = 0;
-    for (let i = 0; i < today.length; i++) {
-      hash = (hash << 5) - hash + today.charCodeAt(i);
-      hash |= 0;
-    }
-    const index = Math.abs(hash) % words.length;
-    return words[index];
-  };
-
-  const wordOfTheDay = getWordOfTheDay();
-
-  const playAudio = (text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
 
   // Pre-defined category lists
   const categories = [
@@ -175,49 +143,6 @@ export const DashboardMode: React.FC<DashboardModeProps> = ({
           <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition shrink-0" />
         </button>
       </div>
-
-      {/* Word of the Day Card */}
-      {wordOfTheDay && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20">
-              Günün Kelimesi
-            </span>
-            <span className="text-[10px] font-mono text-slate-500">
-              Kutu {wordOfTheDay.leitnerBox}
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between gap-2 my-2">
-            <div>
-              <h3 className="text-2xl font-black text-white tracking-tight">
-                {wordOfTheDay.word}
-              </h3>
-              <p className="text-sm font-semibold text-emerald-400 mt-0.5">
-                {wordOfTheDay.translation}
-              </p>
-            </div>
-
-            <button
-              onClick={() => playAudio(wordOfTheDay.word)}
-              className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition shadow-sm shrink-0"
-              title="Telaffuzu Dinle"
-              aria-label="Telaffuz"
-            >
-              <Volume2 className="w-5 h-5 text-indigo-400" />
-            </button>
-          </div>
-
-          {wordOfTheDay.exampleEn && (
-            <div className="mt-3 pt-3 border-t border-slate-800/80 text-xs">
-              <p className="italic text-slate-300 font-serif">"{wordOfTheDay.exampleEn}"</p>
-              {wordOfTheDay.exampleTr && (
-                <p className="text-slate-400 mt-1">"{wordOfTheDay.exampleTr}"</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Leitner SRS Box Progress Overview */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-3">
