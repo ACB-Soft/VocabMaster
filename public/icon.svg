@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="50%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#F1F5F9" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0F172A" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+
+  <!-- Outer Glow Ring -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="#FFFFFF" stroke-opacity="0.15" stroke-width="8" />
+
+  <!-- Main Card Stack -->
+  <g filter="url(#shadow)">
+    <!-- Back Card -->
+    <rect x="146" y="120" width="220" height="260" rx="24" fill="#FFFFFF" fill-opacity="0.3" transform="rotate(-10 256 250)" />
+    <!-- Middle Card -->
+    <rect x="146" y="120" width="220" height="260" rx="24" fill="#FFFFFF" fill-opacity="0.6" transform="rotate(6 256 250)" />
+    <!-- Front Card -->
+    <rect x="146" y="120" width="220" height="260" rx="24" fill="url(#cardGrad)" />
+    
+    <!-- Vocabulary Icon - Book & Star -->
+    <!-- Graduation Cap / Book Symbol -->
+    <path d="M 256 160 L 326 195 L 256 230 L 186 195 Z" fill="#4F46E5" />
+    <path d="M 200 210 L 200 245 C 200 260, 312 260, 312 245 L 312 210" fill="none" stroke="#4F46E5" stroke-width="10" stroke-linecap="round" />
+    <line x1="326" y1="195" x2="326" y2="250" stroke="#06B6D4" stroke-width="8" stroke-linecap="round" />
+    <circle cx="326" cy="255" r="8" fill="#06B6D4" />
+
+    <!-- Word Lines / Progress Indicator -->
+    <rect x="180" y="275" width="152" height="12" rx="6" fill="#3B82F6" />
+    <rect x="180" y="300" width="100" height="10" rx="5" fill="#94A3B8" />
+    <rect x="180" y="320" width="120" height="10" rx="5" fill="#10B981" />
+  </g>
+
+  <!-- Sparkle Accent -->
+  <path d="M 380 120 L 386 136 L 402 142 L 386 148 L 380 164 L 374 148 L 358 142 L 374 136 Z" fill="#F59E0B" />
+</svg>

@@ -1,0 +1,6 @@
+{
+  "name": "VocabMaster YDS & İngilizce Kelime PWA",
+  "description": "Aralıklı tekrar (Leitner SRS) algoritmalı, çift yönlü çeviri sınavlı ve tam çevrimdışı mobil uyumlu kelime ezberleme ve analiz PWA uygulaması.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
