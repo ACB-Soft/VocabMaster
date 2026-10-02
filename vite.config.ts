@@ -15,9 +15,9 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
           id: '/',
-          name: 'VocabMaster YDS & İngilizce Kelime PWA',
+          name: 'VocabMaster - İngilizce Kelime & SRS Sistemi',
           short_name: 'VocabMaster',
-          description: 'YDS, YÖKDİL, TOEFL ve IELTS kelimeleri için çevrimdışı destekli, aralıklı tekrar (SRS/Leitner) kelime ezberleme uygulaması.',
+          description: 'Aralıklı tekrar (Leitner SRS) algoritmalı, çift yönlü çeviri sınavlı ve çevrimdışı destekli kelime ezberleme uygulaması.',
           theme_color: '#4F46E5',
           background_color: '#0F172A',
           display: 'standalone',
