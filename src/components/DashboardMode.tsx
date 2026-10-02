@@ -8,7 +8,7 @@ import {
   Sparkles, 
   Play
 } from 'lucide-react';
-import { EnToTrIcon, TrToEnIcon, TranslationSwapIcon } from './TranslationIcons';
+import { EnToTrIcon } from './TranslationIcons';
 
 interface DashboardModeProps {
   words: Word[];
@@ -122,25 +122,6 @@ export const DashboardMode: React.FC<DashboardModeProps> = ({
           <div className="w-8 h-8 rounded-full bg-white/15 flex items-center justify-center shrink-0">
             <Play className="w-4 h-4 fill-white text-white translate-x-0.5" />
           </div>
-        </button>
-
-        {/* Secondary TR -> EN Quiz Card */}
-        <button
-          onClick={() => onStartQuiz('TR_TO_EN')}
-          className="w-full p-3.5 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-white font-bold text-left flex items-center justify-between gap-3 group active:scale-[0.99] transition"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-cyan-400 shrink-0 group-hover:text-cyan-300 transition">
-              <TrToEnIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-xs font-bold text-slate-200">TR ➔ EN Ters Çeviri Sınavı</span>
-              <p className="text-[11px] text-slate-400 font-normal">
-                Türkçe karşılıktan İngilizce kelimeyi bul
-              </p>
-            </div>
-          </div>
-          <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition shrink-0" />
         </button>
       </div>
 

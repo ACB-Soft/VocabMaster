@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UserStats, NotificationSettings, Word } from '../types/vocab';
 import { StorageService } from '../services/storage';
 import { NotificationService } from '../services/notifications';
-import { Bell, Target, RotateCcw, Download, Sparkles, Compass } from 'lucide-react';
+import { Bell, Target, RotateCcw, Download, Brain, Layers, HelpCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface SettingsModeProps {
   stats: UserStats;
@@ -16,6 +16,7 @@ export const SettingsMode: React.FC<SettingsModeProps> = ({ stats, words, onWord
     StorageService.getSettings()
   );
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isLeitnerInfoExpanded, setIsLeitnerInfoExpanded] = useState(true);
 
   const handleGoalChange = (newGoal: number) => {
     setDailyGoal(newGoal);
@@ -76,7 +77,7 @@ export const SettingsMode: React.FC<SettingsModeProps> = ({ stats, words, onWord
     <div className="p-4 max-w-md mx-auto pb-24 space-y-4">
       <div>
         <h2 className="text-xl font-bold text-white tracking-tight">Ayarlar</h2>
-        <p className="text-xs text-slate-400">Çalışma Hedefleri, Bildirimler ve Veri Yönetimi</p>
+        <p className="text-xs text-slate-400">Çalışma Hedefleri, Bildirimler ve Rehber</p>
       </div>
 
       {/* Daily Goal Picker */}
@@ -101,6 +102,73 @@ export const SettingsMode: React.FC<SettingsModeProps> = ({ stats, words, onWord
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Leitner System Educational Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-3 transition-all">
+        <div 
+          className="flex items-center justify-between cursor-pointer select-none"
+          onClick={() => setIsLeitnerInfoExpanded(!isLeitnerInfoExpanded)}
+        >
+          <div className="flex items-center gap-2">
+            <Brain className="w-4 h-4 text-purple-400" />
+            <h3 className="text-sm font-bold text-white">Leitner Kutuları Nedir?</h3>
+          </div>
+          <button type="button" className="p-1 text-slate-400 hover:text-white">
+            {isLeitnerInfoExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
+
+        {isLeitnerInfoExpanded && (
+          <div className="space-y-3 text-xs text-slate-300 pt-2 border-t border-slate-800/80 animate-fadeIn">
+            <p className="leading-relaxed">
+              <strong>Leitner Kutuları</strong>, Alman bilim insanı Sebastian Leitner tarafından geliştirilen ve bilginin kısa süreli hafızadan <strong>uzun süreli (kalıcı) hafızaya</strong> aktarılmasını sağlayan dünyanın en etkili <strong>Aralıklı Tekrar (Spaced Repetition)</strong> sistemidir.
+            </p>
+
+            <div className="space-y-2 bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800/80 text-[11px]">
+              <h4 className="font-bold text-indigo-400 uppercase text-[10px] tracking-wider mb-1">5 Kutu Mantığı Nasıl Çalışır?</h4>
+              
+              <div className="flex items-start gap-2">
+                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 mt-1" />
+                <div>
+                  <strong className="text-white">Kutu 1 (Yeni / Zor):</strong> Tüm yeni kelimeler buradan başlar. Zihninizde henüz oturmamıştır, sıklıkla tekrar edilir.
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 mt-1" />
+                <div>
+                  <strong className="text-white">Kutu 2 (Öğreniliyor):</strong> Doğru bildiğiniz kelimeler Kutu 2'ye yükselir (2 günde bir tekrar edilir).
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1" />
+                <div>
+                  <strong className="text-white">Kutu 3 (Pekiştirildi):</strong> Tekrar doğru bildiğinizde Kutu 3'e geçer (5 günde bir tekrar edilir).
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-1" />
+                <div>
+                  <strong className="text-white">Kutu 4 (İleri Düzey):</strong> Üst üste doğru bildikçe Kutu 4'e yükselir (10 günde bir tekrar edilir).
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1" />
+                <div>
+                  <strong className="text-white">Kutu 5 (Kalıcı Hafıza):</strong> Dördüncü kez doğru bildiğinizde Kutu 5'e ulaşır ve kelime <strong>kalıcı hafızanıza</strong> aktarılmış olur (30 günde bir kontrol edilir).
+                </div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-[11px] text-amber-200/90 leading-relaxed">
+              <strong>⚠️ Yanlış Cevap Verilirse:</strong> Bir kelime Kutu 4'te bile olsa, yanlış cevap verdiğinizde veya "Bilmiyorum" dediğinizde <strong>otomatik olarak Kutu 1'e geri düşer</strong>. Böylece unutmaya meyilli olduğunuz kelimeler sürekli karşınıza çıkar, bildiklerinizle vakit kaybetmezsiniz.
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Notification Reminders */}
@@ -190,4 +258,3 @@ export const SettingsMode: React.FC<SettingsModeProps> = ({ stats, words, onWord
     </div>
   );
 };
-
